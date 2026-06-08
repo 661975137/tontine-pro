@@ -98,7 +98,7 @@ function LandingPage({ onEnterApp }) {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
         <span style={{ background: '#1e293b', color: '#34d399', padding: '6px 16px', borderRadius: '9999px', fontSize: '14px', fontWeight: '600', marginBottom: '24px', border: '1px solid #334155' }}>🚀 Fintech Afrique de l'Ouest</span>
         <h1 style={{ fontSize: '44px', fontWeight: '800', lineHeight: '1.2', marginBottom: '24px', letterSpacing: '-1px' }}>Digitalisez vos tontines en Côte d'Ivoire avec <span style={{ color: '#059669' }}>Sécurité</span></h1>
-        <p style={{ fontSize: '18px', color: '#94a3b8', marginBottom: '40px', maxWidth: '600px' }}>Gerez vos cercles d'épargne, suivez les tours de table et encaissez vos fonds instantanément via Wave, Orange Money, MTN et Moov.</p>
+        <p style={{ fontSize: '18px', color: '#94a3b8', marginBottom: '40px', maxWidth: '600px' }}>Gérez vos cercles d'épargne, suivez les tours de table et encaissez vos fonds instantanément via Wave, Orange Money, MTN et Moov.</p>
         
         <div style={{ display: 'flex', gap: '16px', marginBottom: '60px' }}>
           <button className="btn-primary" style={{ padding: '16px 32px', fontSize: '16px' }} onClick={onEnterApp}>Créer ou Rejoindre une tontine</button>
@@ -193,30 +193,30 @@ function DashboardOverview({ onSelectTontine, tontines }) {
 }
 
 // =========================================================================
-// 5. COMPOSANT : PAGE DÉTAIL D'UNE TONTINE + INTÉGRATION PAS À PAS CINETPAY
+// 5. COMPOSANT : PAGE DÉTAIL D'UNE TONTINE + INTÉGRATION SÉCURISÉE CINETPAY
 // =========================================================================
 function TontineDetailPage({ t, onBack }) {
   
   const declencherPaiement = () => {
-    // 1. Sécurité : Vérification de la présence du script SDK de CinetPay
     if (typeof CinetPay === "undefined") {
       alert("Le service de paiement CinetPay n'est pas détecté. Veuillez recharger la page.");
       return;
     }
 
-    // 2. Initialisation de la configuration avec tes clés sécurisées depuis le .env
+    const apiKey = import.meta.env.VITE_CINETPAY_API_KEY;
+    const siteId = import.meta.env.VITE_CINETPAY_SITE_ID;
+
     CinetPay.setConfig({
-      apikey: import.meta.env.VITE_CINETPAY_API_KEY,
-      site_id: import.meta.env.VITE_CINETPAY_SITE_ID,
-      notify_url: 'https://tontine-pro.onrender.com/' // Mettre l'adresse finale ou API Webhook
+      apikey: apiKey,
+      site_id: siteId,
+      notify_url: 'https://tontine-pro-1sg6.onrender.com/'
     });
 
-    // 3. Lancement du Checkout Seamless (Ouvre le pop-up intégré de paiement)
     CinetPay.getCheckout({
-      transaction_id: `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Identifiant de transaction unique requis par CinetPay
+      transaction_id: `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       amount: t.amount,
       currency: 'XOF',
-      channels: 'ALL', // Donne le choix entre Wave, MTN, Orange, Moov, Carte bancaire, etc.
+      channels: 'ALL',
       description: `Cotisation Tour ${t.currentRound} — ${t.name}`,
       customer_name: "Konan",
       customer_surname: "Yves-Marie",
@@ -229,13 +229,16 @@ function TontineDetailPage({ t, onBack }) {
       customer_zip_code: "00225"
     });
 
-    // 4. Récupération et traitement du statut du paiement renvoyé par le guichet unique
+    // Écoute de la réponse du SDK avec capture des erreurs d'authentification CinetPay
     CinetPay.waitResponse(function(data) {
       if (data.status === "REFUSED") {
-        alert("⚠️ Le paiement de votre cotisation a été refusé ou annulé.");
+        alert("⚠️ Le paiement de votre cotisation a été refusé : " + (data.description || "Annulé par l'utilisateur."));
       } else if (data.status === "ACCEPTED") {
-        alert(`🎉 Félicitations ! Votre cotisation de ${t.amount.toLocaleString()} F CFA a bien été validée via CinetPay.`);
+        alert(`🎉 Succès ! Votre cotisation de ${t.amount.toLocaleString()} F CFA a bien été validée.`);
       }
+    }, function(error) {
+      // S'exécute immédiatement si CinetPay rejette les clés API, le Site ID ou le domaine OnRender
+      alert("❌ Erreur de configuration CinetPay : " + JSON.stringify(error));
     });
   };
 
@@ -311,14 +314,13 @@ function GenericSettings() {
 }
 
 // =========================================================================
-// 7. ROUTEUR INTERNE ET ARBRE RACINE DE L'APPLICATION
+// 7. ROUTEUR INTERNE ET ARBRE RACINE DE L'APPLICATION (Aliased as App)
 // =========================================================================
-export default function TontineApp() {
+export default function App() {
   const [inApp, setInApp] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
   const [selectedTontine, setSelectedTontine] = useState(null);
 
-  // Données fictives initiales pour la démo
   const [tontines] = useState([
     { id: 1, name: 'Tontine Auto Abidjan', amount: 25000, frequency: 'Mensuel', totalPot: 200000, members: 8, currentRound: 3, paid: false },
     { id: 2, name: 'Épargne Famille Pro', amount: 10000, frequency: 'Hebdomadaire', totalPot: 150000, members: 15, currentRound: 6, paid: true }
@@ -357,5 +359,4 @@ export default function TontineApp() {
     </>
   );
 }
-
 
